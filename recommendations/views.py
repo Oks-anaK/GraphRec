@@ -9,7 +9,10 @@ from recommendations.serializers import (
     ItemSerializer,
     PreferenceSerializer,
 )
-from recommendations.services.recommendation_service import get_recommendations
+from recommendations.services.recommendation_service import (
+    get_recommendations,
+    invalidate_recommendations_cache,
+)
 
 
 class RecommendationView(APIView):
@@ -31,6 +34,7 @@ def add_preference(request):
     serializer = PreferenceSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save()
+        invalidate_recommendations_cache(serializer.validated_data["user_id"])
         return Response(serializer.data, status=HTTP_201_CREATED)
     return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
 

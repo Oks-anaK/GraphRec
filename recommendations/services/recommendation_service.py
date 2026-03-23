@@ -1,4 +1,7 @@
 """Гибридный сервис рекомендаций: объединяет PageRank, CF и k-NN."""
+from django.conf import settings
+from django.core.cache import cache
+
 from recommendations.graph import build_graph
 from recommendations.services.collaborative import collaborative_filtering
 from recommendations.services.knn import knn_recommendations
@@ -58,6 +61,7 @@ def hybrid_recommendations(user_id, top_n=10):
 def get_recommendations(user_id, algorithm="hybrid", limit=10):
     """
     Единая точка входа для получения рекомендаций.
+    Результаты кэшируются в Redis (1 час).
 
     Args:
         user_id: ID пользователя.
@@ -67,14 +71,33 @@ def get_recommendations(user_id, algorithm="hybrid", limit=10):
     Returns:
         [(item_node, score), ...], например [("i_5", 0.82), ("i_8", 0.61)].
     """
+    cache_key = f"recommendations:{user_id}:{algorithm}:{limit}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     if algorithm == "pagerank":
         G = build_graph()
-        return pagerank_recommendations(G, user_id, top_n=limit)
-    if algorithm == "collaborative":
-        return collaborative_filtering(user_id, k=5, top_n=limit)
-    if algorithm == "knn":
-        return knn_recommendations(user_id, k=5, top_n=limit)
-    if algorithm == "hybrid":
-        return hybrid_recommendations(user_id, top_n=limit)
+        result = pagerank_recommendations(G, user_id, top_n=limit)
+    elif algorithm == "collaborative":
+        result = collaborative_filtering(user_id, k=5, top_n=limit)
+    elif algorithm == "knn":
+        result = knn_recommendations(user_id, k=5, top_n=limit)
+    elif algorithm == "hybrid":
+        result = hybrid_recommendations(user_id, top_n=limit)
+    else:
+        result = hybrid_recommendations(user_id, top_n=limit)
 
-    return hybrid_recommendations(user_id, top_n=limit)
+    timeout = getattr(settings, "RECOMMENDATIONS_CACHE_TIMEOUT", 3600)
+    cache.set(cache_key, result, timeout=timeout)
+    return result
+
+
+def invalidate_recommendations_cache(user_id):
+    """
+    Инвалидирует кэш рекомендаций для пользователя.
+    Вызывать при добавлении/изменении предпочтений.
+    """
+    pattern = f"recommendations:{user_id}:*"
+    if hasattr(cache, "delete_pattern"):
+        cache.delete_pattern(pattern)
