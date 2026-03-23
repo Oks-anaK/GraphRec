@@ -14,6 +14,8 @@ def knn_recommendations(user_id, k=5, top_n=10):
     matrix, user_id_to_idx, item_idx_to_id = _build_user_item_matrix()
     if matrix is None or user_id not in user_id_to_idx:
         return []
+    if matrix.shape[0] <= k:
+        return []
 
     user_idx = user_id_to_idx[user_id]
     # Обучаем k-NN по косинусной метрике

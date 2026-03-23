@@ -37,6 +37,21 @@ argon2 = ["argon2-cffi (>=23.1.0)"]
 bcrypt = ["bcrypt (>=4.1.1)"]
 
 [[package]]
+name = "djangorestframework"
+version = "3.17.0"
+description = "Web APIs for Django, made easy."
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "djangorestframework-3.17.0-py3-none-any.whl", hash = "sha256:d84fe85f30b7ac6e8c0076ce9ff635e4eaedca5912f8d7d2926ce448c08533ba"},
+    {file = "djangorestframework-3.17.0.tar.gz", hash = "sha256:456fd992a33f9e64c9d0f47e85d9787db0efb44f894c1e513315b5e74765bd4c"},
+]
+
+[package.dependencies]
+django = ">=4.2"
+
+[[package]]
 name = "joblib"
 version = "1.5.3"
 description = "Lightweight pipelining with Python functions"
@@ -338,4 +353,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<3.14.1"
-content-hash = "59309419e718b65e5e3209ee5fcc5201ce9733ef089deb21b7d196f5cf853c32"
+content-hash = "2e9056861b307eac7f234cda0849acf8268e9341004f1eebe6a77e6d99fc8f21"
