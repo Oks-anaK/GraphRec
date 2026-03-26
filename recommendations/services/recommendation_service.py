@@ -1,4 +1,4 @@
-"""Гибридный сервис рекомендаций: объединяет PageRank, CF и k-NN."""
+"""Сервис рекомендаций: гибрид, кэш Redis."""
 from django.conf import settings
 from django.core.cache import cache
 
@@ -9,10 +9,7 @@ from recommendations.services.pagerank import pagerank_recommendations
 
 
 def _normalize_scores(results):
-    """
-    Минимаксная нормализация оценок в диапазон 0–1.
-    Используется для корректного объединения результатов алгоритмов с разными шкалами.
-    """
+    """Минимакс нормализации оценок в [0, 1]."""
     if not results:
         return {}
     scores = [r[1] for r in results]
@@ -59,18 +56,7 @@ def hybrid_recommendations(user_id, top_n=10):
 
 
 def get_recommendations(user_id, algorithm="hybrid", limit=10):
-    """
-    Единая точка входа для получения рекомендаций.
-    Результаты кэшируются в Redis (1 час).
-
-    Args:
-        user_id: ID пользователя.
-        algorithm: 'pagerank' | 'collaborative' | 'knn' | 'hybrid'.
-        limit: количество рекомендаций.
-
-    Returns:
-        [(item_node, score), ...], например [("i_5", 0.82), ("i_8", 0.61)].
-    """
+    """Рекомендации по algorithm; кэш Redis. Возврат: список пар (узел, score)."""
     cache_key = f"recommendations:{user_id}:{algorithm}:{limit}"
     cached = cache.get(cache_key)
     if cached is not None:
@@ -94,10 +80,7 @@ def get_recommendations(user_id, algorithm="hybrid", limit=10):
 
 
 def invalidate_recommendations_cache(user_id):
-    """
-    Инвалидирует кэш рекомендаций для пользователя.
-    Вызывать при добавлении/изменении предпочтений.
-    """
+    """Сброс кэша рекомендаций пользователя."""
     pattern = f"recommendations:{user_id}:*"
     if hasattr(cache, "delete_pattern"):
         cache.delete_pattern(pattern)

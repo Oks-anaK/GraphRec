@@ -1,7 +1,8 @@
-"""URL-маршруты API рекомендаций."""
+"""Маршруты API приложения recommendations."""
 from django.urls import path
 
 from recommendations.views import (
+    DistributionStatisticsView,
     ItemListView,
     PopularItemsView,
     RecommendationView,
@@ -9,6 +10,8 @@ from recommendations.views import (
     UserPreferencesView,
     add_preference,
 )
+
+app_name = "recommendations"
 
 urlpatterns = [
     path("preferences/", add_preference, name="add_preference"),
@@ -18,7 +21,17 @@ urlpatterns = [
         name="recommendations",
     ),
     path("items/", ItemListView.as_view(), name="items"),
-    path("users/<int:user_id>/preferences/", UserPreferencesView.as_view(), name="user_preferences"),
-    path("statistics/", StatisticsView.as_view(), name="statistics"),
+    path(
+        "users/<int:user_id>/preferences/",
+        UserPreferencesView.as_view(),
+        name="user_preferences",
+    ),
+    # Сначала подмаршруты statistics/*, затем statistics/
+    path(
+        "statistics/distribution/",
+        DistributionStatisticsView.as_view(),
+        name="statistics_distribution",
+    ),
     path("statistics/popular/", PopularItemsView.as_view(), name="popular"),
+    path("statistics/", StatisticsView.as_view(), name="statistics"),
 ]

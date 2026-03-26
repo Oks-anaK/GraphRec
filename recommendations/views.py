@@ -16,7 +16,7 @@ from recommendations.services.recommendation_service import (
 
 
 class RecommendationView(APIView):
-    """GET /api/recommendations/{user_id}/ — рекомендации для пользователя."""
+    """Рекомендации для user_id."""
 
     def get(self, request, user_id):
         algorithm = request.query_params.get("algorithm", "hybrid")
@@ -30,7 +30,7 @@ class RecommendationView(APIView):
 
 @api_view(["POST"])
 def add_preference(request):
-    """POST /api/preferences/ — добавить предпочтение (взаимодействие)."""
+    """Создать или обновить взаимодействие."""
     serializer = PreferenceSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save()
@@ -40,7 +40,7 @@ def add_preference(request):
 
 
 class ItemListView(APIView):
-    """GET /api/items/ — список элементов."""
+    """Список элементов."""
 
     def get(self, request):
         items = Item.objects.all()
@@ -49,7 +49,7 @@ class ItemListView(APIView):
 
 
 class UserPreferencesView(APIView):
-    """GET /api/users/{user_id}/preferences/ — предпочтения пользователя."""
+    """Предпочтения пользователя."""
 
     def get(self, request, user_id):
         if not RecommendationUser.objects.filter(pk=user_id).exists():
@@ -63,7 +63,7 @@ class UserPreferencesView(APIView):
 
 
 class StatisticsView(APIView):
-    """GET /api/statistics/ — общая статистика."""
+    """Сводные счётчики."""
 
     def get(self, request):
         users_count = RecommendationUser.objects.count()
@@ -76,8 +76,44 @@ class StatisticsView(APIView):
         })
 
 
+class DistributionStatisticsView(APIView):
+    """Распределение по типам и оценкам."""
+    def get(self, request):
+        from collections import Counter
+        from django.db.models import Count
+        type_map = dict(Interaction.INTERACTION_TYPE_CHOICES)
+        by_type_qs = (
+            Interaction.objects.values("interaction_type")
+            .annotate(count=Count("id"))
+            .order_by("-count")
+        )
+        interaction_types = [
+            {
+                "type": row["interaction_type"],
+                "label": type_map.get(row["interaction_type"], row["interaction_type"]),
+                "count": row["count"],
+            }
+            for row in by_type_qs
+        ]
+        rated = Interaction.objects.filter(
+            interaction_type=Interaction.RATED,
+            rating__isnull=False,
+        ).values_list("rating", flat=True)
+        rounded = [round(float(r) * 2) / 2 for r in rated]
+        rating_counter = Counter(rounded)
+        rating_labels = sorted(rating_counter.keys())
+        rating_distribution = [
+            {"label": str(label), "count": rating_counter[label]}
+            for label in rating_labels
+        ]
+        return Response({
+            "interaction_types": interaction_types,
+            "rating_distribution": rating_distribution,
+        })
+
+
 class PopularItemsView(APIView):
-    """GET /api/statistics/popular/ — популярные элементы."""
+    """Популярные элементы по числу взаимодействий."""
 
     def get(self, request):
         try:
@@ -100,6 +136,3 @@ class PopularItemsView(APIView):
             for item in popular
         ]
         return Response(data)
-
-
-

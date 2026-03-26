@@ -1,11 +1,11 @@
-"""DRF Serializers для API рекомендаций."""
+"""Сериализаторы DRF."""
 from rest_framework import serializers
 
 from recommendations.models import Interaction, Item, RecommendationUser
 
 
 class PreferenceSerializer(serializers.Serializer):
-    """Сериализатор для добавления предпочтения (взаимодействия)."""
+    """Тело POST /api/preferences/."""
 
     user_id = serializers.IntegerField()
     item_id = serializers.IntegerField()
@@ -65,7 +65,7 @@ class ItemSerializer(serializers.ModelSerializer):
 
 
 class InteractionSerializer(serializers.ModelSerializer):
-    """Сериализатор для взаимодействия (предпочтения пользователя)."""
+    """Модель Interaction для списка предпочтений."""
 
     item_name = serializers.CharField(source="item.name", read_only=True)
     item_type = serializers.CharField(source="item.item_type", read_only=True)
