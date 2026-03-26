@@ -1,4 +1,4 @@
-"""Коллаборативная фильтрация — рекомендации по схожести пользователей."""
+"""Коллаборативная фильтрация (косинусное сходство пользователей)."""
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -7,7 +7,7 @@ from recommendations.models import Interaction, Item, RecommendationUser
 
 
 def _build_user_item_matrix():
-    """Строит матрицу пользователь–элемент из БД."""
+    """Матрица user×item из БД."""
     interactions = Interaction.objects.select_related("user", "item")
     user_ids = list(
         RecommendationUser.objects.values_list("pk", flat=True).order_by("pk")
@@ -33,10 +33,7 @@ def _build_user_item_matrix():
 
 
 def collaborative_filtering(user_id, k=5, top_n=10):
-    """
-    Рекомендации на основе коллаборативной фильтрации.
-    Находит пользователей со схожими вкусами и рекомендует элементы по их оценкам.
-    """
+    """Топ-N по оценкам k похожих пользователей."""
     # Строим матрицу пользователь–элемент из БД
     matrix, user_id_to_idx, item_idx_to_id = _build_user_item_matrix()
     if matrix is None or user_id not in user_id_to_idx:

@@ -1,4 +1,4 @@
-"""k-NN — поиск похожих пользователей и рекомендации на их основе."""
+"""k-NN по матрице user×item (cosine)."""
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
 
@@ -6,10 +6,7 @@ from recommendations.services.collaborative import _build_user_item_matrix
 
 
 def knn_recommendations(user_id, k=5, top_n=10):
-    """
-    Рекомендации на основе k ближайших соседей.
-    Находит пользователей с похожими интересами и рекомендует элементы по их оценкам.
-    """
+    """Топ-N по соседям sklearn NearestNeighbors."""
     # Строим матрицу пользователь–элемент из БД (переиспользуем из collaborative)
     matrix, user_id_to_idx, item_idx_to_id = _build_user_item_matrix()
     if matrix is None or user_id not in user_id_to_idx:

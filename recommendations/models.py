@@ -1,4 +1,4 @@
-"""Модели для системы рекомендаций на графах (ORM, PostgreSQL)."""
+"""Модели системы рекомендаций на графах (ORM)."""
 from django.db import models
 
 
@@ -26,7 +26,7 @@ class RecommendationUser(models.Model):
 
 
 class Item(models.Model):
-    """Элемент (фильм, книга и т.д.) — узел графа."""
+    """Элемент каталога (фильм, книга и т.п.) — узел графа."""
 
     name = models.CharField(
         max_length=255,
@@ -86,7 +86,10 @@ class Interaction(models.Model):
         null=True,
         blank=True,
         verbose_name="Оценка",
-        help_text="Для типа «Оценка»: значение по шкале (часто 1–5); для остальных типов не обязательна.",
+        help_text=(
+            "Для типа «Оценка»: значение по шкале (часто 1–5); "
+            "для остальных типов не обязательна."
+        ),
     )
     created_at = models.DateTimeField(
         auto_now_add=True,

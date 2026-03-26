@@ -1,4 +1,4 @@
-"""Построение графа предпочтений из данных БД."""
+"""Граф NetworkX из ORM."""
 import networkx as nx
 
 from recommendations.models import Interaction, Item, RecommendationUser
@@ -18,7 +18,7 @@ def _get_edge_weight(interaction):
 
 
 def build_graph():
-    """Строит двудольный граф из данных PostgreSQL."""
+    """Двудольный граф пользователи–элементы."""
     # Создаем пустой граф
     G = nx.Graph()
 
