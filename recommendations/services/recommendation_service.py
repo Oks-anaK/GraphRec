@@ -1,4 +1,9 @@
-"""Сервис рекомендаций: гибрид, кэш Redis."""
+"""Сервис рекомендаций: выбор алгоритма, гибрид, кэш Redis.
+
+Фасад для API: один вызов get_recommendations(user_id, algorithm, limit).
+Гибрид нормализует шкалы трёх алгоритмов (min–max) и смешивает с весами 40% CF,
+30% PageRank, 30% k-NN — чтобы сравнивать несовместимые по масштабу числа.
+"""
 
 from django.conf import settings
 from django.core.cache import cache
@@ -10,7 +15,7 @@ from recommendations.services.pagerank import pagerank_recommendations
 
 
 def _normalize_scores(results):
-    """Минимакс нормализации оценок в [0, 1]."""
+    """Минимакс: приводит второй компонент пар (узел, score) к диапазону [0, 1]."""
     if not results:
         return {}
     scores = [r[1] for r in results]
@@ -25,6 +30,7 @@ def hybrid_recommendations(user_id, top_n=10):
     Гибридные рекомендации: объединение PageRank (30%), CF (40%), k-NN (30%).
     Оценки каждого алгоритма нормализуются перед взвешенным суммированием.
     """
+    # Берём с запасом кандидатов, затем режем до top_n после смешивания
     n = max(top_n * 3, 50)
 
     cf = collaborative_filtering(user_id, k=5, top_n=n)
@@ -36,6 +42,7 @@ def hybrid_recommendations(user_id, top_n=10):
     knn_norm = _normalize_scores(knn)
     pr_norm = _normalize_scores(pr)
 
+    # Объединение множеств узлов i_<pk> из трёх списков
     all_items = set(cf_norm) | set(knn_norm) | set(pr_norm)
 
     combined = {}
@@ -74,7 +81,7 @@ def get_recommendations(user_id, algorithm="hybrid", limit=10):
 
 
 def invalidate_recommendations_cache(user_id):
-    """Сброс кэша рекомендаций пользователя."""
+    """Сброс кэша рекомендаций пользователя (django-redis: delete_pattern)."""
     pattern = f"recommendations:{user_id}:*"
     if hasattr(cache, "delete_pattern"):
         cache.delete_pattern(pattern)

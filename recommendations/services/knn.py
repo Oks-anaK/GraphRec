@@ -1,4 +1,9 @@
-"""k-NN по матрице user×item (cosine)."""
+"""k-NN по матрице user×item (cosine).
+
+Идея близка к collaborative: те же строки пользователей, но соседей ищет
+алгоритм sklearn NearestNeighbors (косинусная метрика), а не полная матрица
+cosine_similarity. Вес соседа: 1 − distance (для cosine distance в [0, 1]).
+"""
 
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
@@ -7,8 +12,8 @@ from recommendations.services.collaborative import _build_user_item_matrix
 
 
 def knn_recommendations(user_id, k=5, top_n=10):
-    """Топ-N по соседям sklearn NearestNeighbors."""
-    # Строим матрицу пользователь–элемент из БД (переиспользуем из collaborative)
+    """Топ-N элементов по вкладу k ближайших по косинусному расстоянию пользователей."""
+    # Та же матрица, что и в collaborative — единый источник правды из БД
     matrix, user_id_to_idx, item_idx_to_id = _build_user_item_matrix()
     if matrix is None or user_id not in user_id_to_idx:
         return []
@@ -16,16 +21,16 @@ def knn_recommendations(user_id, k=5, top_n=10):
         return []
 
     user_idx = user_id_to_idx[user_id]
-    # Обучаем k-NN по косинусной метрике
+    # metric="cosine": расстояние в [0, 2]; kneighbors возвращает k+1 точек, первая — сам пользователь
     nn = NearestNeighbors(n_neighbors=k + 1, metric="cosine")
     nn.fit(matrix)
-    # Находим k ближайших соседей (k+1, т.к. первый — сам пользователь)
     distances, indices = nn.kneighbors([matrix[user_idx]])
+    # Отбрасываем себя с индексом 0
     similar_indices = indices[0][1:]
     similar_distances = distances[0][1:]
-    # Элементы, с которыми пользователь уже взаимодействовал
+    # Уже просмотренные/оценённые элементы — не предлагаем в топе
     user_items = set(np.where(matrix[user_idx] > 0)[0])
-    # Взвешенная сумма оценок соседей (расстояние -> сходство: 1 - distance)
+    # Вес: чем меньше расстояние до соседа, тем больше сходство (1 − dist)
     scores = np.zeros(matrix.shape[1])
     for neighbor_idx, dist in zip(similar_indices, similar_distances):
         sim = 1 - dist if dist <= 1 else 0
