@@ -1,8 +1,13 @@
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Загрузка .env из корня проекта (чтобы DB_NAME и др. подхватывались при runserver/migrate).
+load_dotenv(BASE_DIR / ".env")
 
 
 # Quick-start development settings - unsuitable for production
@@ -14,7 +19,12 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-dev-key-change-in-pro
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DEBUG", "1") in ("1", "true", "True", "yes")
 
-ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h.strip()]
+# Если в .env задано ALLOWED_HOSTS= (пусто), os.environ.get не подставляет default —
+# получался пустой список и DisallowedHost на любом хосте.
+_raw_hosts = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").strip()
+if not _raw_hosts:
+    _raw_hosts = "localhost,127.0.0.1"
+ALLOWED_HOSTS = [h.strip() for h in _raw_hosts.split(",") if h.strip()]
 
 
 # Application definition
