@@ -1,4 +1,5 @@
 """Сериализаторы DRF."""
+
 from rest_framework import serializers
 
 from recommendations.models import Interaction, Item, RecommendationUser
@@ -26,9 +27,7 @@ class PreferenceSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         if attrs["interaction_type"] == Interaction.RATED and attrs.get("rating") is None:
-            raise serializers.ValidationError(
-                {"rating": "Для типа 'rated' необходимо указать оценку."}
-            )
+            raise serializers.ValidationError({"rating": "Для типа 'rated' необходимо указать оценку."})
         return attrs
 
     def create(self, validated_data):

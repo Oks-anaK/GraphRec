@@ -1,4 +1,5 @@
 """Тесты API рекомендаций."""
+
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework import status
@@ -43,9 +44,7 @@ class RecommendationAPITestCase(TestCase):
 
     def test_get_recommendations_nonexistent_user_returns_200(self):
         """Несуществующий user — 200 и пустой список."""
-        response = self.client.get(
-            reverse("recommendations:recommendations", args=[99999])
-        )
+        response = self.client.get(reverse("recommendations:recommendations", args=[99999]))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIsInstance(response.json()["recommendations"], list)
 
@@ -338,7 +337,51 @@ class StatisticsAPITestCase(TestCase):
 
     def test_get_user_preferences_unknown_user_404(self):
         """Нет пользователя — 404."""
-        response = self.client.get(
-            reverse("recommendations:user_preferences", args=[99999])
-        )
+        response = self.client.get(reverse("recommendations:user_preferences", args=[99999]))
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class WebUITestCase(TestCase):
+    """Веб-интерфейс (HTML, Bootstrap)."""
+
+    def test_home_200(self):
+        """Главная страница открывается."""
+        response = self.client.get(reverse("web:home"))
+        self.assertEqual(response.status_code, 200)
+
+    def test_preferences_get_200(self):
+        """Страница предпочтений."""
+        response = self.client.get(reverse("web:preferences"))
+        self.assertEqual(response.status_code, 200)
+
+    def test_recommendations_get_200(self):
+        """Страница рекомендаций."""
+        response = self.client.get(reverse("web:recommendations"))
+        self.assertEqual(response.status_code, 200)
+
+    def test_statistics_get_200(self):
+        """Страница статистики."""
+        response = self.client.get(reverse("web:statistics"))
+        self.assertEqual(response.status_code, 200)
+
+    def test_api_root_200(self):
+        """Корень /api/ — оглавление эндпоинтов."""
+        response = self.client.get(reverse("recommendations:api_root"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "REST API")
+
+    def test_preferences_post_creates_interaction(self):
+        """POST формы предпочтений создаёт Interaction."""
+        user = RecommendationUser.objects.create(username="web_user")
+        item = Item.objects.create(name="Item W", item_type="movie")
+        url = reverse("web:preferences")
+        response = self.client.post(
+            url,
+            {
+                "user": str(user.pk),
+                "item": str(item.pk),
+                "interaction_type": Interaction.VIEWED,
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Interaction.objects.count(), 1)

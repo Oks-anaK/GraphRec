@@ -1,3 +1,4 @@
+from django.shortcuts import render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.status import HTTP_201_CREATED, HTTP_400_BAD_REQUEST
@@ -12,6 +13,11 @@ from recommendations.serializers import (
 from recommendations.services.recommendation_service import (
     get_recommendations,
     invalidate_recommendations_cache,
+)
+from recommendations.statistics_data import (
+    get_distribution_statistics,
+    get_popular_items,
+    get_summary_statistics,
 )
 
 
@@ -66,50 +72,14 @@ class StatisticsView(APIView):
     """Сводные счётчики."""
 
     def get(self, request):
-        users_count = RecommendationUser.objects.count()
-        items_count = Item.objects.count()
-        interactions_count = Interaction.objects.count()
-        return Response({
-            "users_count": users_count,
-            "items_count": items_count,
-            "interactions_count": interactions_count,
-        })
+        return Response(get_summary_statistics())
 
 
 class DistributionStatisticsView(APIView):
     """Распределение по типам и оценкам."""
+
     def get(self, request):
-        from collections import Counter
-        from django.db.models import Count
-        type_map = dict(Interaction.INTERACTION_TYPE_CHOICES)
-        by_type_qs = (
-            Interaction.objects.values("interaction_type")
-            .annotate(count=Count("id"))
-            .order_by("-count")
-        )
-        interaction_types = [
-            {
-                "type": row["interaction_type"],
-                "label": type_map.get(row["interaction_type"], row["interaction_type"]),
-                "count": row["count"],
-            }
-            for row in by_type_qs
-        ]
-        rated = Interaction.objects.filter(
-            interaction_type=Interaction.RATED,
-            rating__isnull=False,
-        ).values_list("rating", flat=True)
-        rounded = [round(float(r) * 2) / 2 for r in rated]
-        rating_counter = Counter(rounded)
-        rating_labels = sorted(rating_counter.keys())
-        rating_distribution = [
-            {"label": str(label), "count": rating_counter[label]}
-            for label in rating_labels
-        ]
-        return Response({
-            "interaction_types": interaction_types,
-            "rating_distribution": rating_distribution,
-        })
+        return Response(get_distribution_statistics())
 
 
 class PopularItemsView(APIView):
@@ -120,19 +90,37 @@ class PopularItemsView(APIView):
             limit = min(int(request.query_params.get("limit", 10) or 10), 100)
         except (TypeError, ValueError):
             limit = 10
-        from django.db.models import Count
+        return Response(get_popular_items(limit=limit))
 
-        popular = (
-            Item.objects.annotate(interaction_count=Count("interactions"))
-            .order_by("-interaction_count")[:limit]
-        )
-        data = [
+
+def api_root(request):
+    """Корень REST API: оглавление эндпоинтов (для ссылки «API» в меню)."""
+    rows = [
+        ("GET", "items/", "Список элементов каталога"),
+        ("POST", "preferences/", "Добавить или обновить предпочтение (JSON)"),
+        (
+            "GET",
+            "recommendations/<user_id>/",
+            "Рекомендации (параметры: algorithm, limit)",
+        ),
+        ("GET", "users/<user_id>/preferences/", "Предпочтения пользователя"),
+        ("GET", "statistics/", "Сводная статистика"),
+        ("GET", "statistics/popular/", "Популярные элементы"),
+        ("GET", "statistics/distribution/", "Распределение по типам и оценкам"),
+    ]
+    base = request.build_absolute_uri("/").rstrip("/") + "/api/"
+    endpoints = []
+    for method, rel, description in rows:
+        endpoints.append(
             {
-                "id": item.id,
-                "name": item.name,
-                "item_type": item.item_type,
-                "interaction_count": item.interaction_count,
+                "method": method,
+                "url": base + rel.replace("<user_id>", "1"),
+                "path": rel,
+                "description": description,
             }
-            for item in popular
-        ]
-        return Response(data)
+        )
+    return render(
+        request,
+        "recommendations/api_index.html",
+        {"endpoints": endpoints},
+    )

@@ -1,4 +1,5 @@
 """PageRank по графу пользователь–элемент."""
+
 import networkx as nx
 
 
@@ -15,9 +16,7 @@ def pagerank_recommendations(G, user_id, top_n=10):
     user_items = set(G.neighbors(user_node))
     # Формируем словарь: элемент -> оценка (только элементы, новые для пользователя)
     item_scores = {
-        node: pr[node]
-        for node in G.nodes()
-        if G.nodes[node].get("node_type") == "item" and node not in user_items
+        node: pr[node] for node in G.nodes() if G.nodes[node].get("node_type") == "item" and node not in user_items
     }
     # Сортируем по убыванию оценки и возвращаем топ-N
     return sorted(item_scores.items(), key=lambda x: x[1], reverse=True)[:top_n]

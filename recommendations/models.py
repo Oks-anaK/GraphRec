@@ -1,4 +1,5 @@
 """Модели системы рекомендаций на графах (ORM)."""
+
 from django.db import models
 
 
@@ -86,10 +87,7 @@ class Interaction(models.Model):
         null=True,
         blank=True,
         verbose_name="Оценка",
-        help_text=(
-            "Для типа «Оценка»: значение по шкале (часто 1–5); "
-            "для остальных типов не обязательна."
-        ),
+        help_text=("Для типа «Оценка»: значение по шкале (часто 1–5); " "для остальных типов не обязательна."),
     )
     created_at = models.DateTimeField(
         auto_now_add=True,

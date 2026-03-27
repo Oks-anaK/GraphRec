@@ -1,4 +1,5 @@
 """k-NN по матрице user×item (cosine)."""
+
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
 
@@ -35,8 +36,4 @@ def knn_recommendations(user_id, k=5, top_n=10):
     scores[list(user_items)] = -np.inf
     # Сортируем и возвращаем топ-N
     top_indices = np.argsort(scores)[::-1][:top_n]
-    return [
-        (f"i_{item_idx_to_id[i]}", float(scores[i]))
-        for i in top_indices
-        if scores[i] > 0
-    ]
+    return [(f"i_{item_idx_to_id[i]}", float(scores[i])) for i in top_indices if scores[i] > 0]

@@ -1,4 +1,5 @@
 """Граф NetworkX из ORM."""
+
 import networkx as nx
 
 from recommendations.models import Interaction, Item, RecommendationUser
@@ -7,9 +8,9 @@ from recommendations.models import Interaction, Item, RecommendationUser
 def _get_edge_weight(interaction):
     """Вес ребра по типу взаимодействия."""
     weights = {
-        Interaction.VIEWED: 1.0, # 1.0 по умолчанию
+        Interaction.VIEWED: 1.0,  # 1.0 по умолчанию
         Interaction.LIKED: 1.0,
-        Interaction.PURCHASED: 2.0, # Покупка важнее просмотра и лайка
+        Interaction.PURCHASED: 2.0,  # Покупка важнее просмотра и лайка
     }
     # Для оценки высчитываем значение веса (по шкале 0–1)
     if interaction.interaction_type == Interaction.RATED and interaction.rating:

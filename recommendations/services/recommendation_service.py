@@ -1,4 +1,5 @@
 """Сервис рекомендаций: гибрид, кэш Redis."""
+
 from django.conf import settings
 from django.core.cache import cache
 
@@ -16,10 +17,7 @@ def _normalize_scores(results):
     min_s, max_s = min(scores), max(scores)
     if max_s == min_s:
         return {r[0]: 1.0 for r in results}
-    return {
-        item_node: (score - min_s) / (max_s - min_s)
-        for item_node, score in results
-    }
+    return {item_node: (score - min_s) / (max_s - min_s) for item_node, score in results}
 
 
 def hybrid_recommendations(user_id, top_n=10):
@@ -42,11 +40,7 @@ def hybrid_recommendations(user_id, top_n=10):
 
     combined = {}
     for item in all_items:
-        combined[item] = (
-            0.4 * cf_norm.get(item, 0)
-            + 0.3 * pr_norm.get(item, 0)
-            + 0.3 * knn_norm.get(item, 0)
-        )
+        combined[item] = 0.4 * cf_norm.get(item, 0) + 0.3 * pr_norm.get(item, 0) + 0.3 * knn_norm.get(item, 0)
 
     return sorted(
         combined.items(),

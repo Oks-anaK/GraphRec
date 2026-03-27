@@ -1,4 +1,5 @@
 """Маршруты API приложения recommendations."""
+
 from django.urls import path
 
 from recommendations.views import (
@@ -9,11 +10,13 @@ from recommendations.views import (
     StatisticsView,
     UserPreferencesView,
     add_preference,
+    api_root,
 )
 
 app_name = "recommendations"
 
 urlpatterns = [
+    path("", api_root, name="api_root"),
     path("preferences/", add_preference, name="add_preference"),
     path(
         "recommendations/<int:user_id>/",

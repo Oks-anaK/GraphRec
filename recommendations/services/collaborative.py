@@ -1,4 +1,5 @@
 """Коллаборативная фильтрация (косинусное сходство пользователей)."""
+
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -9,9 +10,7 @@ from recommendations.models import Interaction, Item, RecommendationUser
 def _build_user_item_matrix():
     """Матрица user×item из БД."""
     interactions = Interaction.objects.select_related("user", "item")
-    user_ids = list(
-        RecommendationUser.objects.values_list("pk", flat=True).order_by("pk")
-    )
+    user_ids = list(RecommendationUser.objects.values_list("pk", flat=True).order_by("pk"))
     item_ids = list(Item.objects.values_list("pk", flat=True).order_by("pk"))
 
     if not user_ids or not item_ids:
@@ -59,8 +58,4 @@ def collaborative_filtering(user_id, k=5, top_n=10):
     scores[list(user_items)] = -np.inf
     # Сортируем по убыванию и возвращаем топ-N
     top_indices = np.argsort(scores)[::-1][:top_n]
-    return [
-        (f"i_{item_idx_to_id[i]}", float(scores[i]))
-        for i in top_indices
-        if scores[i] > 0
-    ]
+    return [(f"i_{item_idx_to_id[i]}", float(scores[i])) for i in top_indices if scores[i] > 0]
