@@ -1,10 +1,19 @@
 """Тесты API рекомендаций."""
 
+from django.core.cache import cache
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from recommendations.forms import PreferenceForm
+from recommendations.graph import build_graph
+from recommendations.services.recommendation_service import (
+    _normalize_scores,
+    get_recommendations,
+    invalidate_recommendations_cache,
+)
+from recommendations.statistics_data import get_popular_items
 from recommendations.models import Interaction, Item, RecommendationUser
 
 
@@ -385,3 +394,130 @@ class WebUITestCase(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertEqual(Interaction.objects.count(), 1)
+
+
+class RecommendationServiceCoverageTestCase(TestCase):
+    """Покрытие сервиса рекомендаций, графа и вспомогательных веток."""
+
+    def test_normalize_scores_empty(self):
+        """Пустой список — пустой словарь."""
+        self.assertEqual(_normalize_scores([]), {})
+
+    def test_normalize_scores_all_equal(self):
+        """Равные оценки — все 1.0 после нормализации."""
+        out = _normalize_scores([("i_1", 3.0), ("i_2", 3.0)])
+        self.assertEqual(out["i_1"], 1.0)
+        self.assertEqual(out["i_2"], 1.0)
+
+    def test_get_recommendations_unknown_algorithm_falls_back_to_hybrid(self):
+        """Неизвестный algorithm — как гибрид (ветка else)."""
+        cache.clear()
+        user = RecommendationUser.objects.create(username="unk_algo_u")
+        url = reverse("recommendations:recommendations", args=[user.pk])
+        response = self.client.get(url, {"algorithm": "not-a-real-algorithm", "limit": 3})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("recommendations", response.json())
+
+    def test_get_recommendations_pagerank_cache_hit(self):
+        """Повторный GET с теми же параметрами — ответ из кэша."""
+        cache.clear()
+        user = RecommendationUser.objects.create(username="cache_pr_u")
+        item = Item.objects.create(name="Cache Item", item_type="movie")
+        Interaction.objects.create(user=user, item=item, interaction_type=Interaction.VIEWED)
+        url = reverse("recommendations:recommendations", args=[user.pk])
+        first = self.client.get(url, {"algorithm": "pagerank", "limit": 5})
+        second = self.client.get(url, {"algorithm": "pagerank", "limit": 5})
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.assertEqual(first.json(), second.json())
+
+    def test_hybrid_with_many_users_exercises_algorithms(self):
+        """≥6 пользователей — CF и k-NN не сразу возвращают []."""
+        cache.clear()
+        users = [RecommendationUser.objects.create(username=f"hyb{i}") for i in range(6)]
+        items = [Item.objects.create(name=f"HItem{j}", item_type="movie") for j in range(4)]
+        for i, u in enumerate(users):
+            Interaction.objects.create(
+                user=u,
+                item=items[i % 3],
+                interaction_type=Interaction.VIEWED,
+            )
+        Interaction.objects.create(
+            user=users[0],
+            item=items[3],
+            interaction_type=Interaction.PURCHASED,
+        )
+        Interaction.objects.create(
+            user=users[0],
+            item=items[1],
+            interaction_type=Interaction.RATED,
+            rating=4.0,
+        )
+        out = get_recommendations(users[0].pk, algorithm="hybrid", limit=5)
+        self.assertIsInstance(out, list)
+
+    def test_build_graph_and_pagerank_paths(self):
+        """Граф: разные типы рёбер и PageRank по существующему пользователю."""
+        u = RecommendationUser.objects.create(username="graph_u")
+        i1 = Item.objects.create(name="G1", item_type="book")
+        i2 = Item.objects.create(name="G2", item_type="movie")
+        Interaction.objects.create(user=u, item=i1, interaction_type=Interaction.LIKED)
+        Interaction.objects.create(user=u, item=i2, interaction_type=Interaction.RATED, rating=5.0)
+        G = build_graph()
+        self.assertTrue(G.has_node(f"u_{u.pk}"))
+        self.assertTrue(G.has_edge(f"u_{u.pk}", f"i_{i1.pk}"))
+        cache.clear()
+        pr_out = get_recommendations(u.pk, algorithm="pagerank", limit=3)
+        self.assertIsInstance(pr_out, list)
+
+    def test_invalidate_recommendations_cache_runs(self):
+        """Сброс кэша по шаблону не падает."""
+        u = RecommendationUser.objects.create(username="inv_cache_u")
+        invalidate_recommendations_cache(u.pk)
+
+
+class ModelAndSerializerExtrasTestCase(TestCase):
+    """__str__ моделей, сериализатор, форма, statistics_data."""
+
+    def test_model_str(self):
+        """Строковое представление моделей."""
+        u = RecommendationUser.objects.create(username="str_user")
+        i = Item.objects.create(name="Str Item", item_type="book")
+        inter = Interaction.objects.create(
+            user=u,
+            item=i,
+            interaction_type=Interaction.VIEWED,
+        )
+        self.assertEqual(str(u), "str_user")
+        self.assertEqual(str(i), "Str Item")
+        self.assertIn("str_user", str(inter))
+        self.assertIn("Str Item", str(inter))
+
+    def test_preference_form_rated_requires_rating(self):
+        """clean(): тип «Оценка» без rating — ошибка поля."""
+        u = RecommendationUser.objects.create(username="form_u")
+        i = Item.objects.create(name="Form Item", item_type="movie")
+        form = PreferenceForm(
+            data={
+                "user": u.pk,
+                "item": i.pk,
+                "interaction_type": Interaction.RATED,
+            }
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("rating", form.errors)
+
+    def test_get_popular_items_invalid_limit_uses_default(self):
+        """Некорректный limit — ветка except в get_popular_items."""
+        RecommendationUser.objects.create(username="pop_u")
+        Item.objects.create(name="Pop", item_type="movie")
+        rows = get_popular_items(limit="not-int")
+        self.assertIsInstance(rows, list)
+
+
+class PopularViewInvalidLimitTestCase(TestCase):
+    """Ветка except в PopularItemsView при неверном query limit."""
+
+    def test_popular_invalid_limit_defaults_in_view(self):
+        self.client = APIClient()
+        response = self.client.get(reverse("recommendations:popular"), {"limit": "bad"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
