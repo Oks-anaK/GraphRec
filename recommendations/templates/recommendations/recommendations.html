@@ -1,0 +1,66 @@
+{% extends "recommendations/base.html" %}
+{% block title %}Рекомендации · GraphRec{% endblock %}
+{% block content %}
+<h1 class="h2 mb-4">Рекомендации</h1>
+
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <form method="get" action="" class="row g-3 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label">Пользователь</label>
+        <select name="user_id" class="form-select" required>
+          <option value="">— выберите —</option>
+          {% for u in users %}
+            <option value="{{ u.pk }}" {% if selected_uid == u.pk %}selected{% endif %}>{{ u.username }} (id {{ u.pk }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Алгоритм</label>
+        <select name="algorithm" class="form-select">
+          <option value="hybrid" {% if algorithm == "hybrid" %}selected{% endif %}>Гибрид</option>
+          <option value="pagerank" {% if algorithm == "pagerank" %}selected{% endif %}>PageRank</option>
+          <option value="collaborative" {% if algorithm == "collaborative" %}selected{% endif %}>Коллаборативная фильтрация</option>
+          <option value="knn" {% if algorithm == "knn" %}selected{% endif %}>k-NN</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Лимит</label>
+        <input type="number" name="limit" class="form-control" min="1" max="100" value="{{ limit }}">
+      </div>
+      <div class="col-md-3">
+        <button type="submit" class="btn btn-primary">Получить рекомендации</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if selected_uid %}
+  {% if selected_user %}
+    <p class="text-secondary small">Пользователь: <strong>{{ selected_user.username }}</strong>, алгоритм: <code>{{ algorithm }}</code></p>
+  {% endif %}
+  {% if rows %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle bg-white shadow-sm">
+        <thead class="table-light">
+          <tr><th>#</th><th>Элемент</th><th>Узел графа</th><th>Оценка</th></tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td>{{ forloop.counter }}</td>
+            <td>{{ r.title }}</td>
+            <td><code class="small">{{ r.node }}</code></td>
+            <td>{{ r.score|floatformat:4 }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% elif selected_user %}
+    <p class="text-secondary">Нет рекомендаций (мало данных или все элементы уже в предпочтениях).</p>
+  {% endif %}
+{% else %}
+  <p class="text-secondary">Выберите пользователя и нажмите «Получить рекомендации».</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends "recommendations/base.html" %}
+{% block title %}Главная · GraphRec{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <h1 class="mb-3">Система рекомендаций на основе графов</h1>
+    <p class="lead text-secondary">
+      Узлы графа — пользователи и элементы каталога; рёбра — взаимодействия (просмотр, оценка, лайк, покупка).
+      Рекомендации строятся алгоритмами PageRank, коллаборативной фильтрации, k-NN и гибридом.
+    </p>
+    <div class="row g-3 mt-2">
+      <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title">Предпочтения</h5>
+            <p class="card-text small text-secondary">Добавить взаимодействие и посмотреть историю по пользователю.</p>
+            <a href="{% url 'web:preferences' %}" class="btn btn-outline-primary btn-sm">Открыть</a>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title">Рекомендации</h5>
+            <p class="card-text small text-secondary">Выбор пользователя и алгоритма, список рекомендуемых элементов.</p>
+            <a href="{% url 'web:recommendations' %}" class="btn btn-outline-primary btn-sm">Открыть</a>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title">Статистика</h5>
+            <p class="card-text small text-secondary">Сводка по данным и популярные элементы.</p>
+            <a href="{% url 'web:statistics' %}" class="btn btn-outline-primary btn-sm">Открыть</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="mt-4 text-secondary small">
+      В базе сейчас: <strong>{{ users_count }}</strong> пользователей, <strong>{{ items_count }}</strong> элементов.
+      Создавайте записи через <a href="/admin/">админку</a> или REST API <code>/api/</code>.
+    </p>
+  </div>
+</div>
+{% endblock %}

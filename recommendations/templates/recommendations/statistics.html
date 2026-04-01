@@ -1,0 +1,98 @@
+{% extends "recommendations/base.html" %}
+{% block title %}Статистика · GraphRec{% endblock %}
+{% block content %}
+<h1 class="h2 mb-4">Статистика и аналитика</h1>
+
+<div class="row g-4 mb-4">
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body text-center">
+        <div class="text-secondary small">Пользователей</div>
+        <div class="display-6 text-primary">{{ summary.users_count }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body text-center">
+        <div class="text-secondary small">Элементов</div>
+        <div class="display-6 text-primary">{{ summary.items_count }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body text-center">
+        <div class="text-secondary small">Взаимодействий</div>
+        <div class="display-6 text-primary">{{ summary.interactions_count }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-white fw-semibold">Распределение по типам взаимодействий</div>
+      <div class="card-body">
+        {% if distribution.interaction_types %}
+          <ul class="list-group list-group-flush">
+            {% for row in distribution.interaction_types %}
+            <li class="list-group-item d-flex justify-content-between">
+              {{ row.label }}
+              <span class="badge bg-primary rounded-pill">{{ row.count }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-secondary mb-0">Нет данных.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-white fw-semibold">Распределение оценок (тип «Оценка»)</div>
+      <div class="card-body">
+        {% if distribution.rating_distribution %}
+          <ul class="list-group list-group-flush">
+            {% for row in distribution.rating_distribution %}
+            <li class="list-group-item d-flex justify-content-between">
+              Оценка {{ row.label }}
+              <span class="badge bg-secondary rounded-pill">{{ row.count }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-secondary mb-0">Нет оценок.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card shadow-sm mt-4">
+  <div class="card-header bg-white fw-semibold">Популярные элементы</div>
+  <div class="card-body p-0">
+    {% if popular %}
+      <div class="table-responsive">
+        <table class="table table-striped mb-0">
+          <thead><tr><th>#</th><th>Название</th><th>Тип</th><th>Взаимодействий</th></tr></thead>
+          <tbody>
+            {% for p in popular %}
+            <tr>
+              <td>{{ forloop.counter }}</td>
+              <td>{{ p.name }}</td>
+              <td>{{ p.item_type }}</td>
+              <td>{{ p.interaction_count }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="p-3 text-secondary mb-0">Нет элементов.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

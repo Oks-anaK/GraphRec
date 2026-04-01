@@ -1,0 +1,67 @@
+{% extends "recommendations/base.html" %}
+{% block title %}Предпочтения · GraphRec{% endblock %}
+{% block content %}
+<h1 class="h2 mb-4">Предпочтения</h1>
+
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card shadow-sm">
+      <div class="card-header bg-white fw-semibold">Добавить предпочтение</div>
+      <div class="card-body">
+        <form method="post" action="">
+          {% csrf_token %}
+          {% for field in form %}
+            <div class="mb-3">
+              <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+              {{ field.errors }}
+              {{ field }}
+            </div>
+          {% endfor %}
+          <button type="submit" class="btn btn-primary">Сохранить</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card shadow-sm">
+      <div class="card-header bg-white fw-semibold">Просмотр предпочтений пользователя</div>
+      <div class="card-body">
+        <form method="get" action="" class="row g-2 align-items-end mb-3">
+          <div class="col-auto">
+            <label class="form-label small text-secondary">ID пользователя</label>
+            <input type="number" name="user_id" class="form-control" min="1"
+                   value="{% if view_user %}{{ view_user.pk }}{% endif %}" placeholder="Например, 1">
+          </div>
+          <div class="col-auto">
+            <button type="submit" class="btn btn-outline-secondary">Показать</button>
+          </div>
+        </form>
+        {% if view_user %}
+          <p class="small text-secondary mb-2">Пользователь: <strong>{{ view_user.username }}</strong></p>
+          {% if interactions %}
+            <div class="table-responsive">
+              <table class="table table-sm table-striped align-middle">
+                <thead><tr><th>Элемент</th><th>Тип</th><th>Оценка</th><th>Дата</th></tr></thead>
+                <tbody>
+                  {% for it in interactions %}
+                  <tr>
+                    <td>{{ it.item.name }}</td>
+                    <td>{{ it.get_interaction_type_display }}</td>
+                    <td>{% if it.rating is not None %}{{ it.rating }}{% else %}—{% endif %}</td>
+                    <td class="text-nowrap small">{{ it.created_at|date:"Y-m-d H:i" }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p class="text-secondary mb-0">Нет взаимодействий.</p>
+          {% endif %}
+        {% else %}
+          <p class="text-secondary mb-0">Укажите ID пользователя и нажмите «Показать».</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

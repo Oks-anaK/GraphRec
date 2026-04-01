@@ -1,0 +1,27 @@
+{% extends "recommendations/base.html" %}
+{% block title %}REST API · GraphRec{% endblock %}
+{% block content %}
+<h1 class="h2 mb-3">REST API</h1>
+<p class="text-secondary mb-4">Базовый префикс: <code>/api/</code>. Для POST используйте JSON и заголовок <code>Content-Type: application/json</code> (или Browsable API DRF).</p>
+<div class="table-responsive">
+  <table class="table table-sm table-striped align-middle bg-white shadow-sm">
+    <thead class="table-light">
+      <tr><th>Метод</th><th>Путь</th><th>Описание</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for e in endpoints %}
+      <tr>
+        <td><span class="badge bg-secondary">{{ e.method }}</span></td>
+        <td><code class="small">{{ e.path }}</code></td>
+        <td>{{ e.description }}</td>
+        <td class="text-nowrap">
+          {% if e.method == "GET" %}
+            <a class="btn btn-sm btn-outline-primary" href="{{ e.url }}">Открыть</a>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
