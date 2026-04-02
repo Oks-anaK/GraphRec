@@ -1,14 +1,22 @@
 """Тесты API рекомендаций."""
 
+import numpy as np
+import networkx as nx
 from django.core.cache import cache
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.neighbors import NearestNeighbors
 
 from recommendations.forms import PreferenceForm
 from recommendations.graph import build_graph
+from recommendations.services.collaborative import _build_user_item_matrix, collaborative_filtering
+from recommendations.services.knn import knn_recommendations
+from recommendations.services.pagerank import pagerank_recommendations
 from recommendations.services.recommendation_service import (
+    _combine_hybrid_scores,
     _normalize_scores,
     get_recommendations,
     invalidate_recommendations_cache,
@@ -512,6 +520,127 @@ class ModelAndSerializerExtrasTestCase(TestCase):
         Item.objects.create(name="Pop", item_type="movie")
         rows = get_popular_items(limit="not-int")
         self.assertIsInstance(rows, list)
+
+
+def _expected_collaborative_numpy(matrix, user_idx, k, top_n, item_idx_to_id):
+    """Тот же расчёт, что в collaborative_filtering."""
+    user_similarity = cosine_similarity(matrix)
+    similar_indices = np.argsort(user_similarity[user_idx])[::-1][1 : k + 1]
+    scores = np.zeros(matrix.shape[1])
+    for neighbor_idx in similar_indices:
+        sim = user_similarity[user_idx, neighbor_idx]
+        if sim <= 0:
+            continue
+        scores += sim * matrix[neighbor_idx]
+    user_items = set(np.where(matrix[user_idx] > 0)[0])
+    scores[list(user_items)] = -np.inf
+    top_indices = np.argsort(scores)[::-1][:top_n]
+    return [(f"i_{item_idx_to_id[i]}", float(scores[i])) for i in top_indices if scores[i] > 0]
+
+
+def _expected_knn_numpy(matrix, user_idx, k, top_n, item_idx_to_id):
+    """Тот же расчёт, что в knn_recommendations."""
+    nn = NearestNeighbors(n_neighbors=k + 1, metric="cosine")
+    nn.fit(matrix)
+    distances, indices = nn.kneighbors([matrix[user_idx]])
+    similar_indices = indices[0][1:]
+    similar_distances = distances[0][1:]
+    scores = np.zeros(matrix.shape[1])
+    for neighbor_idx, dist in zip(similar_indices, similar_distances):
+        sim = 1 - dist if dist <= 1 else 0
+        if sim <= 0:
+            continue
+        scores += sim * matrix[neighbor_idx]
+    user_items = set(np.where(matrix[user_idx] > 0)[0])
+    scores[list(user_items)] = -np.inf
+    top_indices = np.argsort(scores)[::-1][:top_n]
+    return [(f"i_{item_idx_to_id[i]}", float(scores[i])) for i in top_indices if scores[i] > 0]
+
+
+@override_settings(
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "recommendation-order-tests",
+        }
+    }
+)
+class RecommendationOrderTestCase(TestCase):
+    """Порядок рекомендаций и веса гибрида."""
+
+    def test_combine_hybrid_scores_math_order(self):
+        """Взвешенная сумма нормализованных оценок (40/30/30) и порядок узлов."""
+        out = _combine_hybrid_scores(
+            {"i_a": 1.0, "i_b": 0.0, "i_c": 0.2},
+            {"i_a": 0.0, "i_b": 1.0, "i_c": 0.8},
+            {"i_a": 0.5, "i_b": 0.5, "i_c": 0.0},
+        )
+        # i_a: 0.4 + 0 + 0.15 = 0.55; i_b: 0 + 0.3 + 0.15 = 0.45; i_c: 0.08 + 0.24 + 0 = 0.32
+        self.assertEqual([p[0] for p in out], ["i_a", "i_b", "i_c"])
+        self.assertAlmostEqual(out[0][1], 0.55, places=10)
+        self.assertAlmostEqual(out[1][1], 0.45, places=10)
+        self.assertAlmostEqual(out[2][1], 0.32, places=10)
+
+    def test_collaborative_filtering_matches_numpy(self):
+        """CF совпадает с расчётом на numpy/sklearn; первый элемент — ожидаемый item."""
+        cache.clear()
+        users = [RecommendationUser.objects.create(username=f"ord_cf_{i}") for i in range(6)]
+        items = [Item.objects.create(name=f"OrdCF {j}", item_type="movie") for j in range(3)]
+        for u in users[1:]:
+            Interaction.objects.create(user=u, item=items[0], interaction_type=Interaction.VIEWED)
+        Interaction.objects.create(user=users[5], item=items[1], interaction_type=Interaction.VIEWED)
+        Interaction.objects.create(user=users[0], item=items[0], interaction_type=Interaction.VIEWED)
+
+        matrix, user_id_to_idx, item_idx_to_id = _build_user_item_matrix()
+        uid = users[0].pk
+        uidx = user_id_to_idx[uid]
+        expected = _expected_collaborative_numpy(matrix, uidx, k=5, top_n=10, item_idx_to_id=item_idx_to_id)
+        actual = collaborative_filtering(uid, k=5, top_n=10)
+        self.assertEqual(actual, expected)
+        self.assertGreater(len(actual), 0)
+        self.assertEqual(actual[0][0], f"i_{items[1].pk}")
+
+    def test_knn_matches_numpy(self):
+        """k-NN совпадает с расчётом на sklearn; первый элемент — ожидаемый item."""
+        cache.clear()
+        users = [RecommendationUser.objects.create(username=f"ord_knn_{i}") for i in range(6)]
+        items = [Item.objects.create(name=f"OrdKNN {j}", item_type="movie") for j in range(3)]
+        for u in users[1:]:
+            Interaction.objects.create(user=u, item=items[0], interaction_type=Interaction.VIEWED)
+        Interaction.objects.create(user=users[5], item=items[1], interaction_type=Interaction.VIEWED)
+        Interaction.objects.create(user=users[0], item=items[0], interaction_type=Interaction.VIEWED)
+
+        matrix, user_id_to_idx, item_idx_to_id = _build_user_item_matrix()
+        uid = users[0].pk
+        uidx = user_id_to_idx[uid]
+        expected = _expected_knn_numpy(matrix, uidx, k=5, top_n=10, item_idx_to_id=item_idx_to_id)
+        actual = knn_recommendations(uid, k=5, top_n=10)
+        self.assertEqual(actual, expected)
+        self.assertGreater(len(actual), 0)
+        self.assertEqual(actual[0][0], f"i_{items[1].pk}")
+
+    def test_pagerank_order_heavier_edge_first(self):
+        """Сильнее ребро → выше PageRank; порядок среди несвязанных с пользователем item."""
+        cache.clear()
+        u0 = RecommendationUser.objects.create(username="ord_pr_a")
+        u1 = RecommendationUser.objects.create(username="ord_pr_b")
+        i1 = Item.objects.create(name="OrdPR base", item_type="movie")
+        i2 = Item.objects.create(name="OrdPR heavy", item_type="movie")
+        i3 = Item.objects.create(name="OrdPR light", item_type="movie")
+        Interaction.objects.create(user=u0, item=i1, interaction_type=Interaction.VIEWED)
+        Interaction.objects.create(user=u1, item=i2, interaction_type=Interaction.PURCHASED)
+        Interaction.objects.create(user=u1, item=i3, interaction_type=Interaction.VIEWED)
+
+        G = build_graph()
+        pr = nx.pagerank(G, weight="weight")
+        self.assertGreater(pr[f"i_{i2.pk}"], pr[f"i_{i3.pk}"])
+
+        out = pagerank_recommendations(G, u0.pk, top_n=10)
+        nodes = [p[0] for p in out]
+        self.assertEqual(nodes[0], f"i_{i2.pk}")
+        self.assertEqual(nodes[1], f"i_{i3.pk}")
+        scores = [p[1] for p in out]
+        self.assertEqual(scores, sorted(scores, reverse=True))
 
 
 class PopularViewInvalidLimitTestCase(TestCase):

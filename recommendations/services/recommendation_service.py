@@ -25,6 +25,19 @@ def _normalize_scores(results):
     return {item_node: (score - min_s) / (max_s - min_s) for item_node, score in results}
 
 
+def _combine_hybrid_scores(cf_norm, pr_norm, knn_norm):
+    """Взвешенная сумма нормализованных оценок: 40% CF, 30% PageRank, 30% k-NN."""
+    all_items = set(cf_norm) | set(pr_norm) | set(knn_norm)
+    combined = {}
+    for item in all_items:
+        combined[item] = (
+            0.4 * cf_norm.get(item, 0)
+            + 0.3 * pr_norm.get(item, 0)
+            + 0.3 * knn_norm.get(item, 0)
+        )
+    return sorted(combined.items(), key=lambda x: x[1], reverse=True)
+
+
 def hybrid_recommendations(user_id, top_n=10):
     """
     Гибридные рекомендации: объединение PageRank (30%), CF (40%), k-NN (30%).
@@ -42,18 +55,8 @@ def hybrid_recommendations(user_id, top_n=10):
     knn_norm = _normalize_scores(knn)
     pr_norm = _normalize_scores(pr)
 
-    # Объединение множеств узлов i_<pk> из трёх списков
-    all_items = set(cf_norm) | set(knn_norm) | set(pr_norm)
-
-    combined = {}
-    for item in all_items:
-        combined[item] = 0.4 * cf_norm.get(item, 0) + 0.3 * pr_norm.get(item, 0) + 0.3 * knn_norm.get(item, 0)
-
-    return sorted(
-        combined.items(),
-        key=lambda x: x[1],
-        reverse=True,
-    )[:top_n]
+    combined_sorted = _combine_hybrid_scores(cf_norm, pr_norm, knn_norm)
+    return combined_sorted[:top_n]
 
 
 def get_recommendations(user_id, algorithm="hybrid", limit=10):

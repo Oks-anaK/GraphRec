@@ -145,7 +145,7 @@ poetry run coverage run --source=recommendations manage.py test recommendations
 poetry run coverage report -m
 ```
 
-Ориентировочное покрытие пакета `recommendations`: **~94%** (точное значение см. в выводе `coverage report` после запуска).
+Ориентировочное покрытие пакета `recommendations`: **~87%** (точное значение см. в выводе `coverage report` после запуска).
 
 ### Линтеры и форматирование
 
