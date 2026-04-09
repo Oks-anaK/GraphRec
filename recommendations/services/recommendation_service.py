@@ -30,11 +30,7 @@ def _combine_hybrid_scores(cf_norm, pr_norm, knn_norm):
     all_items = set(cf_norm) | set(pr_norm) | set(knn_norm)
     combined = {}
     for item in all_items:
-        combined[item] = (
-            0.4 * cf_norm.get(item, 0)
-            + 0.3 * pr_norm.get(item, 0)
-            + 0.3 * knn_norm.get(item, 0)
-        )
+        combined[item] = 0.4 * cf_norm.get(item, 0) + 0.3 * pr_norm.get(item, 0) + 0.3 * knn_norm.get(item, 0)
     return sorted(combined.items(), key=lambda x: x[1], reverse=True)
 
 

@@ -1,7 +1,7 @@
 """Тесты API рекомендаций."""
 
-import numpy as np
 import networkx as nx
+import numpy as np
 from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -12,6 +12,7 @@ from sklearn.neighbors import NearestNeighbors
 
 from recommendations.forms import PreferenceForm
 from recommendations.graph import build_graph
+from recommendations.models import Interaction, Item, RecommendationUser
 from recommendations.services.collaborative import _build_user_item_matrix, collaborative_filtering
 from recommendations.services.knn import knn_recommendations
 from recommendations.services.pagerank import pagerank_recommendations
@@ -22,7 +23,6 @@ from recommendations.services.recommendation_service import (
     invalidate_recommendations_cache,
 )
 from recommendations.statistics_data import get_popular_items
-from recommendations.models import Interaction, Item, RecommendationUser
 
 
 class RecommendationAPITestCase(TestCase):

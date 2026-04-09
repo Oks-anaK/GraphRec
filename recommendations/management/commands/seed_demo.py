@@ -142,11 +142,7 @@ class Command(BaseCommand):
             return
 
         int_c, int_u = _seed_interactions(users, items_by_key)
-        self.stdout.write(
-            self.style.SUCCESS(
-                f"Взаимодействия: создано {int_c}, обновлено {int_u}."
-            )
-        )
+        self.stdout.write(self.style.SUCCESS(f"Взаимодействия: создано {int_c}, обновлено {int_u}."))
 
         for u in users:
             invalidate_recommendations_cache(u.pk)
