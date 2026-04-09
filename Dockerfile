@@ -8,14 +8,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Устанавливаем Poetry
-RUN pip install --upgrade pip && pip install poetry
+# Во избежание несовместимости версий, укажем ее явно
+RUN pip install --upgrade pip && pip install "poetry==1.8.3"
 
 # Сначала копируем только файлы зависимостей (лучше кэш слоев)
 COPY pyproject.toml poetry.lock ./
 
 # Ставим зависимости в системный python (без venv)
+# --no-root не пытается устанавливать сам проект как пакет (частая причина падения на Railway).
 RUN poetry config virtualenvs.create false \
-    && poetry install --no-interaction --no-ansi --only main
+    && poetry install --no-interaction --no-ansi --only main --no-root
 
 # Копируем код проекта
 COPY . .
