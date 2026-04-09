@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [develop, main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    env:
+      SECRET_KEY: test-secret-key
+      DEBUG: "0"
+      ALLOWED_HOSTS: localhost,127.0.0.1
+      LOCATION: redis://127.0.0.1:6379/1
+      # DB_NAME НЕ задаем -> Django возьмет SQLite
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Poetry
+        run: pip install "poetry>=2.0,<3.0"
+
+      - name: Install dependencies
+        run: poetry install --with lint --no-interaction --no-ansi --no-root
+
+      - name: Lint (isort)
+        run: poetry run isort --check-only .
+
+      - name: Lint (black)
+        run: poetry run black --check .
+
+      - name: Lint (flake8)
+        run: poetry run flake8 .
+
+      - name: Run tests
+        run: poetry run python manage.py test recommendations
