@@ -131,6 +131,12 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 
+STATIC_ROOT = BASE_DIR / "static"
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+CSRF_TRUSTED_ORIGINS = ["https://graphrec-production.up.railway.app"]
+
 
 # Cache (Redis) — LOCATION из .env (redis://127.0.0.1:6379/1 или redis://redis:6379/0)
 CACHES = {
