@@ -2,9 +2,25 @@
 
 Веб-сервис на **Django** и **Django REST Framework**: граф предпочтений (NetworkX), алгоритмы PageRank, коллаборативная фильтрация и k-NN, гибридные рекомендации, кэш в **Redis**. Есть **веб-интерфейс** на HTML и **Bootstrap 5** (предпочтения, рекомендации, статистика) и **REST API** под `/api/`.
 
-**Теги:** `Python` `Django` `DRF` `PostgreSQL` `Redis` `NetworkX` `ORM` `PEP8` `Git`
+## Демо-ссылка
 
-> Проект **без Docker**: запуск описан для локальной машины разработчика и для выкладки на сервер (вручную или через CI/CD), без контейнеризации.
+- Railway (production): <https://graphrec-production.up.railway.app>
+- API base: <https://graphrec-production.up.railway.app/api/>
+- Документация API (Browsable API DRF): <https://graphrec-production.up.railway.app/api/>
+- Swagger/OpenAPI: пока не подключены
+
+---
+
+## Стек
+
+- Python 3.12+
+- Django 6
+- Django REST Framework
+- PostgreSQL
+- Redis (кэш рекомендаций)
+- NetworkX, NumPy, scikit-learn
+- Gunicorn
+- Docker + Railway (production deploy)
 
 ---
 
@@ -15,7 +31,7 @@
 | Сценарий | Что описано ниже |
 |----------|------------------|
 | **Локально (ПК)** | Основной сценарий: клонирование, зависимости, `.env`, Redis (и при необходимости PostgreSQL), миграции, `runserver`, веб-интерфейс, API и админка. |
-| **Сервер (продакшен)** | Общие шаги: тот же код, переменные окружения, `DEBUG=0`, свой `SECRET_KEY`, `ALLOWED_HOSTS`, HTTPS, процесс под Gunicorn/uWSGI + nginx — **без** пошагового Docker. Детали деплоя зависят от хостинга. |
+| **Сервер (продакшен)** | Деплой на Railway из этого README: `Dockerfile`, переменные окружения, `DEBUG=0`, свой `SECRET_KEY`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, PostgreSQL/Redis. |
 
 Инструкция в README рассчитана прежде всего на **локальный запуск** для разработки и тестов; на сервере те же команды выполняются в виртуальном окружении на машине или в CI/CD пайплайне.
 
@@ -30,7 +46,7 @@
 
 ---
 
-## Установка и запуск (локально)
+## Как запустить локально
 
 1. **Клонировать репозиторий**
 
@@ -93,6 +109,27 @@
 
 ---
 
+## Архитектура
+
+### Основные модули
+
+- `config/` - настройки Django, роутинг, WSGI/ASGI
+- `recommendations/models.py` - пользователи, элементы каталога, взаимодействия
+- `recommendations/services/` - алгоритмы рекомендаций (hybrid, pagerank, collaborative, knn)
+- `recommendations/web_views.py` - HTML-интерфейс
+- `recommendations/views.py` и `serializers.py` - REST API
+- `recommendations/management/commands/seed_demo.py` - загрузка шаблонных демо-данных
+
+### Поток данных
+
+1. Пользователь создает взаимодействия с элементами (viewed/liked/rated/purchased).
+2. Данные сохраняются в PostgreSQL.
+3. Сервис рекомендаций строит кандидатов на основе графа и поведенческих сигналов.
+4. Результат кэшируется в Redis.
+5. API и веб-интерфейс возвращают готовые рекомендации.
+
+---
+
 ## Взаимодействие с проектом
 
 ### Через браузер (веб-интерфейс)
@@ -106,7 +143,7 @@
 
 Создайте пользователей (`RecommendationUser`), элементы (`Item`) и при необходимости взаимодействия (`Interaction`), либо используйте API или форму на сайте.
 
-### REST API (примеры)
+### API examples
 
 Базовый URL: `http://127.0.0.1:8000/api/`
 
@@ -129,6 +166,12 @@ curl -X POST http://127.0.0.1:8000/api/preferences/ ^
 ```
 
 В браузере для POST с сессией нужен CSRF-токен; удобнее **Browsable API** DRF или клиент вроде Postman.
+
+Пример для production:
+
+```bash
+curl -X GET "https://graphrec-production.up.railway.app/api/recommendations/1/?algorithm=hybrid&limit=10"
+```
 
 ### Тесты
 
@@ -172,12 +215,16 @@ pyproject.toml
 
 ---
 
-## Конфигурация на сервере (кратко)
+## Deploy on Railway
 
-- Установить Python, Poetry (или venv + pip), **Redis**, **PostgreSQL** (задать `DB_*` в окружении).
-- Выставить переменные окружения (`SECRET_KEY`, `DEBUG=0`, `ALLOWED_HOSTS`, `LOCATION` для Redis, **`DB_NAME`** и остальные `DB_*` для PostgreSQL).
-- Собрать статику: `collectstatic`, за прокси (nginx) отдать статику и проксировать на WSGI/ASGI-приложение.
-- Docker в проекте **не используется**; сценарии контейнеризации в репозитории не описаны и при необходимости добавляются отдельно.
+1. Подключите GitHub-репозиторий к Railway (`Deploy from GitHub Repo`).
+2. Убедитесь, что в корне есть рабочий `Dockerfile`.
+3. Добавьте сервис `PostgreSQL` (и `Redis`, если нужен кэш).
+4. В `Variables` app-сервиса задайте: `SECRET_KEY`, `DEBUG=0`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`, `LOCATION`.
+5. Задеплойте приложение (Railway сам собирает Docker-образ).
+6. После первого успешного деплоя сгенерируйте `Public Domain` в `Settings -> Networking`.
+7. Разово наполните демо-данными командой `python manage.py seed_demo` (через Run Command/Shell или временный start command).
+8. Проверьте эндпоинты: `/`, `/api/`, `/api/recommendations/<user_id>/`.
 
 ---
 
