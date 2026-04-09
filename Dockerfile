@@ -4,7 +4,7 @@ ENV PYTHONUNBUFFERED=1
 ENV PIP_NO_CACHE_DIR=1
 WORKDIR /app
 RUN pip install --upgrade pip
-RUN pip install poetry==1.8.3
+RUN pip install "poetry>=2.0,<3.0"
 COPY pyproject.toml poetry.lock ./
 RUN poetry config virtualenvs.create false && poetry install --no-interaction --no-ansi --only main --no-root
 COPY . .
